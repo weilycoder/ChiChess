@@ -1,6 +1,10 @@
 import { PIECE_SIZE, pieces_name } from "./utils";
 
-export function NoPiece({ onClick }: { onClick?: () => void }) {
+export function NoPiece({
+  onClick,
+}: {
+  onClick?: React.MouseEventHandler<SVGSVGElement>;
+}) {
   const size = PIECE_SIZE;
   const r = size * 0.45;
   const cx = size / 2;
@@ -23,11 +27,13 @@ export function Piece({
   name,
   color,
   onClick,
+  selected,
   style,
 }: {
   name: keyof typeof pieces_name;
   color: "red" | "black";
-  onClick?: () => void;
+  onClick?: React.MouseEventHandler<SVGSVGElement>;
+  selected?: boolean;
   style?: React.CSSProperties;
 }) {
   const size = PIECE_SIZE;
@@ -52,6 +58,17 @@ export function Piece({
           <stop offset="100%" stopColor="#b8b5b0" />
         </radialGradient>
       </defs>
+      {selected && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r + 6}
+          fill="none"
+          stroke="#f1c40f"
+          strokeWidth="4"
+          opacity="0.9"
+        />
+      )}
       <circle
         cx={cx}
         cy={cy}

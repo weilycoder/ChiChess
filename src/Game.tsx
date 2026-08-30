@@ -1,5 +1,7 @@
+import { useState, useMemo } from "react";
+
 import { Board } from "./Board";
-import { BoardData } from "./board_data";
+import { BoardData, type Position } from "./board_data";
 import { Piece, NoPiece } from "./Pieces";
 import {
   getBoardX as getX,
@@ -9,7 +11,28 @@ import {
 } from "./utils";
 
 export function Game() {
-  const boardData = new BoardData();
+  const [boardData, setBoardData] = useState(new BoardData());
+  const [selected, setSelected] = useState<Position | null>(null);
+
+  const updateSelected = (col: number, row: number) => {
+    if (selected === null) setSelected({ col, row });
+    else if (selected.col === col && selected.row === row) setSelected(null);
+    else if (boardData.isValidMove(selected.col, selected.row, col, row)) {
+      const newBoardData = boardData.copy();
+      newBoardData.movePiece(selected.col, selected.row, col, row);
+      setSelected(null);
+      setBoardData(newBoardData);
+    } else setSelected({ col, row });
+  };
+
+  const validMove = useMemo(() => {
+    if (!selected) return [];
+    return boardData.getValidMoves(selected.col, selected.row);
+  }, [selected, boardData]);
+
+  const isValidMove = (toCol: number, toRow: number) => {
+    return validMove.some((move) => move.col === toCol && move.row === toRow);
+  };
 
   const renderPieces = () => {
     const children: React.ReactNode[] = [];
@@ -20,13 +43,34 @@ export function Game() {
         if (piece === null)
           children.push(
             <g key={`${col}-${row}`} transform={transform}>
-              <NoPiece />
+              <NoPiece
+                onClick={
+                  isValidMove(col, row)
+                    ? (e) => {
+                        e.stopPropagation();
+                        updateSelected(col, row);
+                      }
+                    : undefined
+                }
+              />
             </g>,
           );
         else
           children.push(
             <g key={`${getPieceId(piece)}-${col}-${row}`} transform={transform}>
-              <Piece name={piece.name} color={piece.color} />
+              <Piece
+                name={piece.name}
+                color={piece.color}
+                onClick={
+                  piece.color === boardData.getTurn() || isValidMove(col, row)
+                    ? (e) => {
+                        e.stopPropagation();
+                        updateSelected(col, row);
+                      }
+                    : undefined
+                }
+                selected={selected?.col === col && selected?.row === row}
+              />
             </g>,
           );
       }
@@ -35,7 +79,13 @@ export function Game() {
   };
 
   return (
-    <div style={{ display: "inline-block" }}>
+    <div
+      style={{ display: "inline-block" }}
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelected(null);
+      }}
+    >
       <Board>{renderPieces()}</Board>
     </div>
   );
