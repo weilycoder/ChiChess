@@ -2,8 +2,10 @@ import { PIECE_SIZE, pieces_name } from "./utils";
 
 export function NoPiece({
   onClick,
+  reachable,
 }: {
   onClick?: React.MouseEventHandler<SVGSVGElement>;
+  reachable?: boolean;
 }) {
   const size = PIECE_SIZE;
   const r = size * 0.45;
@@ -18,6 +20,15 @@ export function NoPiece({
       onClick={onClick}
       style={{ cursor: onClick ? "pointer" : "default" }}
     >
+      {reachable && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={size * 0.15}
+          fill="rgba(0, 200, 0, 0.5)"
+          stroke="none"
+        />
+      )}
       <circle cx={cx} cy={cy} r={r} fill="rgba(0, 0, 0, 0)" stroke="none" />
     </svg>
   );
@@ -29,12 +40,14 @@ export function Piece({
   onClick,
   selected,
   style,
+  reachable,
 }: {
   name: keyof typeof pieces_name;
   color: "red" | "black";
   onClick?: React.MouseEventHandler<SVGSVGElement>;
   selected?: boolean;
   style?: React.CSSProperties;
+  reachable?: boolean;
 }) {
   const size = PIECE_SIZE;
   const r = size * 0.45;
@@ -102,6 +115,15 @@ export function Piece({
       >
         {textName}
       </text>
+      {reachable && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={size * 0.15}
+          fill="rgba(0, 200, 0, 0.5)"
+          stroke="none"
+        />
+      )}
     </svg>
   );
 }

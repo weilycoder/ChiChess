@@ -39,7 +39,7 @@ export function Game() {
     for (let row = 0; row < 10; row++) {
       for (let col = 0; col < 9; col++) {
         const piece = boardData.pieceAt(col, row);
-        const transform = `translate(${getX(col) - CELL / 2}, ${getY(row) - CELL / 2})`;
+        const transform = `translate(${getX(col) - CELL / 2 + 2}, ${getY(row) - CELL / 2 + 2})`;
         if (piece === null)
           children.push(
             <g key={`${col}-${row}`} transform={transform}>
@@ -52,6 +52,7 @@ export function Game() {
                       }
                     : undefined
                 }
+                reachable={isValidMove(col, row)}
               />
             </g>,
           );
@@ -70,6 +71,7 @@ export function Game() {
                     : undefined
                 }
                 selected={selected?.col === col && selected?.row === row}
+                reachable={isValidMove(col, row)}
               />
             </g>,
           );
