@@ -1,0 +1,6 @@
+{
+  "printWidth": 80,
+  "sortImports": true,
+  "sortPackageJson": true,
+  "ignorePatterns": ["dist/", "node_modules/", "pnpm-lock.yaml"]
+}
