@@ -87,14 +87,20 @@ export function Game({
   const updateSelected = (col: number, row: number) => {
     if (selected === null) setSelected({ col, row });
     else if (selected.col === col && selected.row === row) setSelected(null);
-    else if (boardData.isValidMove(selected.col, selected.row, col, row)) {
+    else {
       const newBoardData = boardData.copy();
-      newBoardData.movePiece(selected.col, selected.row, col, row);
-      setSelected(null);
-      startAnimation(selected, { col, row }, () => {
-        setBoardData(newBoardData);
-      });
-    } else setSelected({ col, row });
+      if (
+        newBoardData.movePiece({
+          from: { col: selected.col, row: selected.row },
+          to: { col, row },
+        })
+      ) {
+        setSelected(null);
+        startAnimation(selected, { col, row }, () => {
+          setBoardData(newBoardData);
+        });
+      } else setSelected({ col, row });
+    }
   };
 
   const validMove = useMemo(() => {

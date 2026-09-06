@@ -128,25 +128,18 @@ export class BoardData {
     return newBoardData;
   }
 
-  movePiece(
-    fromCol: number,
-    fromRow: number,
-    toCol: number,
-    toRow: number,
-  ): boolean {
-    if (!this.isValidMove(fromCol, fromRow, toCol, toRow)) return false;
+  movePiece(move: Move): boolean {
+    const { from, to } = move;
+    if (!this.isValidMove(move)) return false;
 
     this.history = this.history.slice(0, ++this.historyIndex);
     this.history.push({
-      move: {
-        from: { col: fromCol, row: fromRow },
-        to: { col: toCol, row: toRow },
-      },
-      originalPiece: this.pieceAt(toCol, toRow),
+      move,
+      originalPiece: this.pieceAt(to.col, to.row),
     });
 
-    this.board[toRow * 9 + toCol] = this.board[fromRow * 9 + fromCol];
-    this.board[fromRow * 9 + fromCol] = null;
+    this.board[to.row * 9 + to.col] = this.board[from.row * 9 + from.col];
+    this.board[from.row * 9 + from.col] = null;
     this.turn = this.turn === "red" ? "black" : "red";
     return true;
   }
@@ -356,15 +349,13 @@ export class BoardData {
     return allValidMoves;
   }
 
-  isValidMove(
-    fromCol: number,
-    fromRow: number,
-    toCol: number,
-    toRow: number,
-  ): boolean {
-    if (this.pieceAt(fromCol, fromRow)?.color !== this.turn) return false;
-    const validMoves = this.getValidMoves(fromCol, fromRow);
-    return validMoves.some((move) => move.col === toCol && move.row === toRow);
+  isValidMove(move: Move): boolean {
+    const { from, to } = move;
+    if (this.pieceAt(from.col, from.row)?.color !== this.turn) return false;
+    const validMoves = this.getValidMoves(from.col, from.row);
+    return validMoves.some(
+      (move) => move.col === to.col && move.row === to.row,
+    );
   }
 
   getFen(): string {
