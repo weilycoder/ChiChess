@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 
 import { Board } from "./Board";
-import { BoardData, type Position } from "./board_data";
+import { type BoardData, type Position } from "./board_data";
 import { Piece, NoPiece } from "./Pieces";
 import {
   getBoardX as getX,
@@ -10,8 +10,13 @@ import {
   getPieceId,
 } from "./utils";
 
-export function Game() {
-  const [boardData, setBoardData] = useState(new BoardData());
+export function Game({
+  boardData,
+  setBoardData,
+}: {
+  boardData: BoardData;
+  setBoardData: React.Dispatch<React.SetStateAction<BoardData>>;
+}) {
   const [selected, setSelected] = useState<Position | null>(null);
 
   const updateSelected = (col: number, row: number) => {
