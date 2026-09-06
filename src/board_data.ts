@@ -10,6 +10,11 @@ export type Move = {
   to: Position;
 };
 
+export type historyItem = {
+  move: Move | null;
+  originalPiece: PieceData | null;
+};
+
 export const initialFen =
   "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
 
@@ -59,6 +64,9 @@ export class BoardData {
   private turn: "red" | "black";
   private board: (PieceData | null)[];
 
+  private historyIndex: number;
+  private history: historyItem[];
+
   constructor(fen: string | null = initialFen) {
     if (fen === null) {
       this.turn = "red";
@@ -87,10 +95,16 @@ export class BoardData {
 
       this.board = board;
     }
+    this.historyIndex = 0;
+    this.history = [{ move: null, originalPiece: null }];
   }
 
   getTurn() {
     return this.turn;
+  }
+
+  getHistory() {
+    return [this.historyIndex, this.history] as const;
   }
 
   pieceAt(col: number, row: number): PieceData | null {
@@ -109,6 +123,8 @@ export class BoardData {
     const newBoardData = new BoardData(null);
     newBoardData.turn = this.turn;
     newBoardData.board = [...this.board];
+    newBoardData.history = [...this.history];
+    newBoardData.historyIndex = this.historyIndex;
     return newBoardData;
   }
 
@@ -119,9 +135,50 @@ export class BoardData {
     toRow: number,
   ): boolean {
     if (!this.isValidMove(fromCol, fromRow, toCol, toRow)) return false;
+
+    this.history = this.history.slice(0, ++this.historyIndex);
+    this.history.push({
+      move: {
+        from: { col: fromCol, row: fromRow },
+        to: { col: toCol, row: toRow },
+      },
+      originalPiece: this.pieceAt(toCol, toRow),
+    });
+
     this.board[toRow * 9 + toCol] = this.board[fromRow * 9 + fromCol];
     this.board[fromRow * 9 + fromCol] = null;
     this.turn = this.turn === "red" ? "black" : "red";
+    return true;
+  }
+
+  undoMove(): boolean {
+    if (this.historyIndex === 0) return false;
+    const lastMove = this.history[this.historyIndex--];
+    if (lastMove.move === null) return false;
+
+    const { from, to } = lastMove.move;
+    this.board[from.row * 9 + from.col] = this.board[to.row * 9 + to.col];
+    this.board[to.row * 9 + to.col] = lastMove.originalPiece;
+    this.turn = this.turn === "red" ? "black" : "red";
+    return true;
+  }
+
+  redoMove(): boolean {
+    if (this.historyIndex >= this.history.length) return false;
+    const nextMove = this.history[this.historyIndex++];
+    if (nextMove.move === null) return false;
+
+    const { from, to } = nextMove.move;
+    this.board[to.row * 9 + to.col] = this.board[from.row * 9 + from.col];
+    this.board[from.row * 9 + from.col] = null;
+    this.turn = this.turn === "red" ? "black" : "red";
+    return true;
+  }
+
+  jumpToHistory(index: number): boolean {
+    if (index < 0 || index >= this.history.length) return false;
+    while (this.historyIndex < index) this.redoMove();
+    while (this.historyIndex > index) this.undoMove();
     return true;
   }
 
