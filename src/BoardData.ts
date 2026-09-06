@@ -384,15 +384,29 @@ export class BoardData {
   isInCheck(color: "red" | "black"): boolean {
     const opponent = color === "red" ? "black" : "red";
     for (let row = 0; row < 10; row++)
-      for (let col = 0; col < 9; col++)
-        if (this.pieceAt(col, row)?.color === opponent) {
-          const possibleMoves = this.getPossibleMoves(col, row);
-          for (let move of possibleMoves) {
-            const targetPiece = this.pieceAt(move.col, move.row);
-            if (targetPiece?.name === "king" && targetPiece.color === color)
-              return true;
+      for (let col = 0; col < 9; col++) {
+        const piece = this.pieceAt(col, row);
+        if (piece?.color === opponent) {
+          if (piece.name === "king") {
+            const step = piece.color === "red" ? -1 : 1;
+            for (let r = row + step; r >= 0 && r < 10; r += step) {
+              const targetPiece = this.pieceAt(col, r);
+              if (targetPiece) {
+                if (targetPiece.name === "king" && targetPiece.color === color)
+                  return true;
+                break;
+              }
+            }
+          } else {
+            const possibleMoves = this.getPossibleMoves(col, row);
+            for (let move of possibleMoves) {
+              const targetPiece = this.pieceAt(move.col, move.row);
+              if (targetPiece?.name === "king" && targetPiece.color === color)
+                return true;
+            }
           }
         }
+      }
     return false;
   }
 
