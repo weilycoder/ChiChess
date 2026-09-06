@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { BoardData } from "./board_data";
+import { BoardData } from "./BoardData";
 import { Game } from "./Game";
 
 function App() {

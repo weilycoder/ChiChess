@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 
 import { Board } from "./Board";
-import { type BoardData, type Position } from "./board_data";
+import { type BoardData, type Position } from "./BoardData";
 import { Piece, NoPiece } from "./Pieces";
 import {
   getBoardX as getX,
