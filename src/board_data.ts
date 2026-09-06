@@ -1,4 +1,9 @@
-import { pieces_abbr, type PieceAbbr, type PieceData } from "./utils";
+import {
+  pieces_abbr,
+  pieces_name,
+  type PieceAbbr,
+  type PieceData,
+} from "./utils";
 
 export type Position = {
   col: number;
@@ -13,6 +18,7 @@ export type Move = {
 export type historyItem = {
   move: Move | null;
   originalPiece: PieceData | null;
+  chineseNotation?: string;
 };
 
 export const initialFen =
@@ -60,6 +66,11 @@ const horseDelta = [
   ],
 ];
 
+const numberNotation = {
+  red: ["一", "二", "三", "四", "五", "六", "七", "八", "九"],
+  black: ["１", "２", "３", "４", "５", "６", "７", "８", "９"],
+};
+
 export class BoardData {
   private turn: "red" | "black";
   private board: (PieceData | null)[];
@@ -96,7 +107,9 @@ export class BoardData {
       this.board = board;
     }
     this.historyIndex = 0;
-    this.history = [{ move: null, originalPiece: null }];
+    this.history = [
+      { move: null, originalPiece: null, chineseNotation: undefined },
+    ];
   }
 
   getTurn() {
@@ -104,7 +117,7 @@ export class BoardData {
   }
 
   getHistory() {
-    return [this.historyIndex, this.history] as const;
+    return { index: this.historyIndex, items: this.history } as const;
   }
 
   pieceAt(col: number, row: number): PieceData | null {
@@ -136,6 +149,7 @@ export class BoardData {
     this.history.push({
       move,
       originalPiece: this.pieceAt(to.col, to.row),
+      chineseNotation: this.chineseMoveNotation(move),
     });
 
     this.board[to.row * 9 + to.col] = this.board[from.row * 9 + from.col];
@@ -303,6 +317,66 @@ export class BoardData {
           });
         }
         return validMoves;
+      }
+    }
+  }
+
+  private chineseMoveNotation(move: Move): string {
+    const { from, to } = move;
+    const piece = this.pieceAt(from.col, from.row);
+    if (!piece) throw new Error("No piece at the starting position");
+
+    const advance =
+      piece.color === "red" ? to.row < from.row : to.row > from.row;
+    const rowDiff = Math.abs(to.row - from.row);
+    const rowDiffNotation =
+      rowDiff === 0 ? undefined : numberNotation[piece.color][rowDiff - 1];
+
+    const chineseColNotation = (col: number, color: "red" | "black") =>
+      numberNotation[color][color === "red" ? 8 - col : col];
+    const fromColNotation = chineseColNotation(from.col, piece.color);
+    const toColNotation = chineseColNotation(to.col, piece.color);
+
+    const pieceName = pieces_name[piece.name][piece.color];
+    switch (piece.name) {
+      case "advisor":
+      case "elephant":
+      case "horse":
+        return `${pieceName}${fromColNotation}${advance ? "进" : "退"}${toColNotation}`;
+      case "king":
+        if (rowDiffNotation === undefined)
+          return `${pieceName}${fromColNotation}平${toColNotation}`;
+        else
+          return `${pieceName}${fromColNotation}${advance ? "进" : "退"}${rowDiffNotation}`;
+      case "cannon":
+      case "rook":
+      case "pawn": {
+        let sameColPieces: number[] = [];
+        for (let row = 0; row < 10; row++) {
+          const p = this.pieceAt(from.col, row);
+          if (p && p.name === piece.name && p.color === piece.color)
+            sameColPieces.push(row);
+        }
+        if (piece.color === "black") sameColPieces.reverse();
+
+        const currentIndex = sameColPieces.indexOf(from.row);
+        const sameColCount = sameColPieces.length;
+
+        let pieceIdentifier: string;
+        if (sameColCount === 1)
+          pieceIdentifier = `${pieceName}${fromColNotation}`;
+        else if (currentIndex === 0) pieceIdentifier = `前${pieceName}`;
+        else if (currentIndex === sameColCount - 1)
+          pieceIdentifier = `后${pieceName}`;
+        else if (sameColCount === 3 && currentIndex === 1)
+          pieceIdentifier = `中${pieceName}`;
+        else
+          pieceIdentifier = `${numberNotation.red[currentIndex]}${pieceName}`;
+
+        if (rowDiffNotation === undefined)
+          return `${pieceIdentifier}平${toColNotation}`;
+        else
+          return `${pieceIdentifier}${advance ? "进" : "退"}${rowDiffNotation}`;
       }
     }
   }
