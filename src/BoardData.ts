@@ -204,17 +204,25 @@ export class BoardData {
               (pos.row >= 7 || pos.row <= 2) &&
               !this.sameColor(col, row, pos.col, pos.row),
           );
-      case "elephant":
-        return elephantDelta
-          .map(([dc, dr]) => ({ col: col + dc, row: row + dr }))
-          .filter(
-            (pos) =>
-              pos.col >= 0 &&
-              pos.col <= 8 &&
-              // prettier-ignore
-              (pos.row <= 4) == (row <= 4) && // Ensure the elephant doesn't cross the river
-              !this.sameColor(col, row, pos.col, pos.row),
-          );
+      case "elephant": {
+        let validMoves: Position[] = [];
+        for (let i = 0; i < 4; i++) {
+          const [ec, er] = advisorDelta[i];
+          if (this.pieceAt(col + ec, row + er) === null) {
+            const [dc, dr] = elephantDelta[i];
+            const newCol = col + dc;
+            const newRow = row + dr;
+            if (
+              newCol >= 0 &&
+              newCol <= 8 &&
+              newRow <= 4 == row <= 4 && // Ensure the elephant doesn't cross the river
+              !this.sameColor(col, row, newCol, newRow)
+            )
+              validMoves.push({ col: newCol, row: newRow });
+          }
+        }
+        return validMoves;
+      }
       case "king":
         return kingDelta
           .map(([dc, dr]) => ({ col: col + dc, row: row + dr }))
