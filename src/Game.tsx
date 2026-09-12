@@ -79,12 +79,15 @@ export function Game({
   setBoardData,
 }: {
   boardData: BoardData;
-  setBoardData: React.Dispatch<React.SetStateAction<BoardData>>;
+  setBoardData?: React.Dispatch<React.SetStateAction<BoardData>>;
 }) {
   const [selected, setSelected] = useState<Position | null>(null);
   const [animation, startAnimation] = useMoveAnimation();
 
+  const readonly = useMemo(() => setBoardData === undefined, [setBoardData]);
+
   const updateSelected = (col: number, row: number) => {
+    if (readonly || animation !== null) return;
     if (selected === null) setSelected({ col, row });
     else if (selected.col === col && selected.row === row) setSelected(null);
     else {
@@ -97,7 +100,7 @@ export function Game({
       ) {
         setSelected(null);
         startAnimation(selected, { col, row }, () => {
-          setBoardData(newBoardData);
+          setBoardData?.(newBoardData);
         });
       } else setSelected({ col, row });
     }
@@ -131,7 +134,7 @@ export function Game({
             <g key={`${col}-${row}`} transform={transform}>
               <NoPiece
                 onClick={
-                  animation === null && isValidMove(col, row)
+                  !readonly && animation === null && isValidMove(col, row)
                     ? (e) => {
                         e.stopPropagation();
                         updateSelected(col, row);
@@ -149,6 +152,7 @@ export function Game({
                 name={piece.name}
                 color={piece.color}
                 onClick={
+                  !readonly &&
                   animation === null &&
                   (piece.color === boardData.getTurn() || isValidMove(col, row))
                     ? (e) => {
