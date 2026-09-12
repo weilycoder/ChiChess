@@ -1,175 +1,210 @@
-import type { ReactElement } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 
-import { BOARD_CELL_SIZE, BOARD_MARGIN } from "./utils";
+import { BoardData, type Position } from "./BoardData";
+import { BoardSvg } from "./BoardSvg";
+import { PieceSvg, NoPieceSvg } from "./PiecesSvg";
+import {
+  getBoardX as getX,
+  getBoardY as getY,
+  BOARD_CELL_SIZE as CELL,
+  getPieceId,
+} from "./utils";
 
-export function Board({ children }: { children?: React.ReactNode }) {
-  const cell = BOARD_CELL_SIZE;
-  const margin = BOARD_MARGIN;
-  const W = cell * 8 + 2 * margin;
-  const H = cell * 9 + 2 * margin;
+const TOTAL_ANIMATION_DURATION = 100;
+const PER_FRAME_DURATION = 10;
 
-  const leftX = margin;
-  const rightX = W - margin;
+type MoveAnimation = {
+  from: Position;
+  to: Position;
+  progress: number;
+};
 
-  const topY = margin;
-  const bottomY = H - margin;
-  const riverTop = topY + cell * 4;
-  const riverBottom = riverTop + cell;
+function getAnimatedPosition(animation: MoveAnimation): Position {
+  const { from, to, progress } = animation;
+  const x = from.col + (to.col - from.col) * progress;
+  const y = from.row + (to.row - from.row) * progress;
+  return { col: x, row: y };
+}
 
-  const elements: ReactElement[] = [];
+function useMoveAnimation() {
+  const [animation, setAnimation] = useState<MoveAnimation | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const animationRef = useRef<MoveAnimation | null>(null);
+  const onCompleteRef = useRef<(() => void) | undefined>(undefined);
 
-  const addLine = (
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    key: string,
-    strokeWidth: number,
+  const startAnimation = (
+    from: Position,
+    to: Position,
+    onComplete?: () => void,
   ) => {
-    elements.push(
-      <line
-        key={key}
-        x1={x1}
-        y1={y1}
-        x2={x2}
-        y2={y2}
-        stroke="#222"
-        strokeWidth={strokeWidth}
-      />,
-    );
+    onCompleteRef.current = onComplete;
+    const initialAnimation = { from, to, progress: 0 };
+    animationRef.current = initialAnimation;
+    setAnimation(initialAnimation);
+    setIsAnimating(true);
   };
 
-  for (let i = 0; i <= 9; i++) {
-    const y = topY + cell * i;
-    addLine(leftX, y, rightX, y, `h-${i}`, 4);
-  }
+  useEffect(() => {
+    if (!isAnimating) return;
 
-  for (let i = 0; i <= 8; i++) {
-    const x = margin + cell * i;
+    const interval = setInterval(() => {
+      const current = animationRef.current;
+      if (!current) return;
 
-    if (i === 0 || i === 8) {
-      addLine(x, topY, x, bottomY, `v-${i}`, 4);
-    } else {
-      addLine(x, topY, x, riverTop, `v-top-${i}`, 3);
-      addLine(x, riverBottom, x, bottomY, `v-bottom-${i}`, 3);
-    }
-  }
-
-  const gx1 = margin + cell * 3;
-  const gx2 = margin + cell * 5;
-
-  addLine(gx1, topY, gx2, topY + cell * 2, "palace-top-1", 3);
-  addLine(gx2, topY, gx1, topY + cell * 2, "palace-top-2", 3);
-  addLine(gx1, bottomY - cell * 2, gx2, bottomY, "palace-bottom-1", 3);
-  addLine(gx2, bottomY - cell * 2, gx1, bottomY, "palace-bottom-2", 3);
-
-  function drawMarker(x: number, y: number, dirs: string[], keyPrefix: string) {
-    const d = 8;
-    const g = 6;
-    const paths: ReactElement[] = [];
-
-    dirs.forEach((dir, index) => {
-      let x0 = g + d;
-      let y0 = g;
-      let x1 = g;
-      let y1 = g;
-      let x2 = g;
-      let y2 = g + d;
-
-      if (dir[0] === "t") {
-        y0 *= -1;
-        y1 *= -1;
-        y2 *= -1;
-      }
-
-      if (dir[1] === "l") {
-        x0 *= -1;
-        x1 *= -1;
-        x2 *= -1;
-      }
-
-      paths.push(
-        <path
-          key={`${keyPrefix}-${dir}-${index}`}
-          d={`M${x + x0},${y + y0} L${x + x1},${y + y1} L${x + x2},${y + y2}`}
-          stroke="#222"
-          strokeWidth={2.4}
-          fill="none"
-        />,
+      const newProgress = Math.min(
+        current.progress + PER_FRAME_DURATION / TOTAL_ANIMATION_DURATION,
+        1.0,
       );
-    });
 
-    return paths;
-  }
+      if (newProgress >= 1) {
+        clearInterval(interval);
+        setIsAnimating(false);
+        setAnimation(null);
+        onCompleteRef.current?.();
+      } else {
+        const updated = { ...current, progress: newProgress };
+        animationRef.current = updated;
+        setAnimation(updated);
+      }
+    }, PER_FRAME_DURATION);
 
-  elements.push(
-    ...drawMarker(
-      leftX + cell,
-      topY + cell * 2,
-      ["tl", "tr", "bl", "br"],
-      "bp2-left",
-    ),
-  );
-  elements.push(
-    ...drawMarker(
-      rightX - cell,
-      topY + cell * 2,
-      ["tl", "tr", "bl", "br"],
-      "bp2-right",
-    ),
-  );
+    return () => clearInterval(interval);
+  }, [isAnimating]);
 
-  [0, 2, 4, 6, 8].forEach((c) => {
-    const dirs: string[] = [];
+  return [animation, startAnimation] as const;
+}
 
-    if (c === 0) {
-      dirs.push("tr", "br");
-    } else if (c === 8) {
-      dirs.push("tl", "bl");
-    } else {
-      dirs.push("tl", "tr", "bl", "br");
+export function Board({
+  boardData,
+  setBoardData,
+}: {
+  boardData: BoardData;
+  setBoardData?: React.Dispatch<React.SetStateAction<BoardData>>;
+}) {
+  const [selected, setSelected] = useState<Position | null>(null);
+  const [animation, startAnimation] = useMoveAnimation();
+
+  const readonly = useMemo(() => setBoardData === undefined, [setBoardData]);
+
+  const updateSelected = (col: number, row: number) => {
+    if (readonly || animation !== null) return;
+    if (selected === null) setSelected({ col, row });
+    else if (selected.col === col && selected.row === row) setSelected(null);
+    else {
+      const newBoardData = boardData.copy();
+      if (
+        newBoardData.movePiece({
+          from: { col: selected.col, row: selected.row },
+          to: { col, row },
+        })
+      ) {
+        setSelected(null);
+        startAnimation(selected, { col, row }, () => {
+          setBoardData?.(newBoardData);
+        });
+      } else setSelected({ col, row });
+    }
+  };
+
+  const validMove = useMemo(() => {
+    if (!selected) return [];
+    return boardData.getValidMoves(selected.col, selected.row);
+  }, [selected, boardData]);
+
+  const isValidMove = (toCol: number, toRow: number) => {
+    return validMove.some((move) => move.col === toCol && move.row === toRow);
+  };
+
+  const renderPieces = () => {
+    const children: React.ReactNode[] = [];
+    for (let row = 0; row < 10; row++) {
+      for (let col = 0; col < 9; col++) {
+        const piece = boardData.pieceAt(col, row);
+        const transform = `translate(${getX(col) - CELL / 2 + 2}, ${getY(row) - CELL / 2 + 2})`;
+
+        if (
+          animation &&
+          animation.from.col === col &&
+          animation.from.row === row
+        )
+          continue;
+
+        if (piece === null)
+          children.push(
+            <g key={`${col}-${row}`} transform={transform}>
+              <NoPieceSvg
+                onClick={
+                  !readonly && animation === null && isValidMove(col, row)
+                    ? (e) => {
+                        e.stopPropagation();
+                        updateSelected(col, row);
+                      }
+                    : undefined
+                }
+                reachable={isValidMove(col, row)}
+              />
+            </g>,
+          );
+        else
+          children.push(
+            <g key={`${getPieceId(piece)}-${col}-${row}`} transform={transform}>
+              <PieceSvg
+                name={piece.name}
+                color={piece.color}
+                onClick={
+                  !readonly &&
+                  animation === null &&
+                  (piece.color === boardData.getTurn() || isValidMove(col, row))
+                    ? (e) => {
+                        e.stopPropagation();
+                        updateSelected(col, row);
+                      }
+                    : undefined
+                }
+                selected={selected?.col === col && selected?.row === row}
+                reachable={isValidMove(col, row)}
+              />
+            </g>,
+          );
+      }
     }
 
-    elements.push(
-      ...drawMarker(leftX + cell * c, riverTop - cell, dirs, `bp3-col-${c}`),
-    );
-    elements.push(
-      ...drawMarker(leftX + cell * c, riverBottom + cell, dirs, `rp2-col-${c}`),
-    );
-  });
-
-  elements.push(
-    ...drawMarker(
-      leftX + cell,
-      bottomY - cell * 2,
-      ["tl", "tr", "bl", "br"],
-      "rp3-left",
-    ),
-  );
-  elements.push(
-    ...drawMarker(
-      rightX - cell,
-      bottomY - cell * 2,
-      ["tl", "tr", "bl", "br"],
-      "rp3-right",
-    ),
-  );
+    if (animation) {
+      const animatedPos = getAnimatedPosition(animation);
+      const originalPiece = boardData.pieceAt(
+        animation.from.col,
+        animation.from.row,
+      );
+      if (originalPiece) {
+        const transform = `translate(${getX(animatedPos.col) - CELL / 2 + 2}, ${getY(animatedPos.row) - CELL / 2 + 2})`;
+        children.push(
+          <g
+            key={`anim-${getPieceId(originalPiece)}-${animation.to.col}-${animation.to.row}`}
+            transform={transform}
+          >
+            <PieceSvg name={originalPiece.name} color={originalPiece.color} />
+          </g>,
+        );
+      }
+    }
+    return children;
+  };
 
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-      <rect x="0" y="0" width={W} height={H} fill="#fff" rx="4" />
-      <rect
-        x={margin - 8}
-        y={topY - 8}
-        width={W - 2 * margin + 16}
-        height={H - 2 * margin + 16}
-        fill="none"
-        stroke="#222"
-        strokeWidth={8}
-        rx="2"
-      />
-      {elements}
-      {children}
-    </svg>
+    <div
+      style={{ display: "inline-block" }}
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelected(null);
+      }}
+    >
+      <BoardSvg>{renderPieces()}</BoardSvg>
+    </div>
   );
+}
+
+export function ReadonlyBoard({ fen }: { fen: string }) {
+  const boardData = useMemo(() => new BoardData(fen), [fen]);
+
+  return <Board boardData={boardData} />;
 }

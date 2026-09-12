@@ -1,12 +1,12 @@
 import { useState } from "react";
 
+import { Board } from "./Board";
 import { BoardData } from "./BoardData";
-import { Game } from "./Game";
 
 function App() {
   const [boardData, setBoardData] = useState(new BoardData());
 
-  return <Game boardData={boardData} setBoardData={setBoardData} />;
+  return <Board boardData={boardData} setBoardData={setBoardData} />;
 }
 
 export default App;

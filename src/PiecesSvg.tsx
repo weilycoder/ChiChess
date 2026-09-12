@@ -1,6 +1,6 @@
 import { PIECE_SIZE, pieces_name } from "./utils";
 
-export function NoPiece({
+export function NoPieceSvg({
   onClick,
   reachable,
 }: {
@@ -34,7 +34,7 @@ export function NoPiece({
   );
 }
 
-export function Piece({
+export function PieceSvg({
   name,
   color,
   onClick,
