@@ -42,6 +42,11 @@ export const pieces_name = {
   },
 };
 
+export const numberNotation = {
+  red: ["一", "二", "三", "四", "五", "六", "七", "八", "九"],
+  black: ["１", "２", "３", "４", "５", "６", "７", "８", "９"],
+};
+
 export type PieceName = keyof typeof pieces_name;
 
 export const pieces_abbr: Record<string, PieceName> = {

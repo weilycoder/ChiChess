@@ -1,6 +1,7 @@
 import {
   pieces_abbr,
   pieces_name,
+  numberNotation,
   type PieceAbbr,
   type PieceData,
 } from "./utils";
@@ -65,11 +66,6 @@ const horseDelta = [
     [1, 2],
   ],
 ];
-
-const numberNotation = {
-  red: ["一", "二", "三", "四", "五", "六", "七", "八", "九"],
-  black: ["１", "２", "３", "４", "５", "６", "７", "８", "９"],
-};
 
 export class BoardData {
   private turn: "red" | "black";
