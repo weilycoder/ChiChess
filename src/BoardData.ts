@@ -165,6 +165,10 @@ export class BoardData {
     return { index: this.historyIndex, items: this.history } as const;
   }
 
+  getBoard(): (PieceData | null)[] {
+    return structuredClone(this.board);
+  }
+
   pieceAt(col: number, row: number): PieceData | null {
     if (col < 0 || col >= 9 || row < 0 || row >= 10) return null;
     return this.board[row * 9 + col];

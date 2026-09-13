@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
-import { BoardData, type Position } from "./BoardData";
+import { BoardData, type PieceData, type Position } from "./BoardData";
 import { BoardSvg } from "./BoardSvg";
 import { PieceSvg, NoPieceSvg } from "./PiecesSvg";
 import {
@@ -10,68 +10,136 @@ import {
   getPieceId,
 } from "./utils";
 
-const TOTAL_ANIMATION_DURATION = 100;
-const PER_FRAME_DURATION = 10;
+const ANIMATION_DURATION = 150;
+const BOARD_COLS = 9;
 
-type MoveAnimation = {
+type Transition = {
+  piece: PieceData;
   from: Position;
   to: Position;
-  progress: number;
+  captured: PieceData | null;
 };
 
-function getAnimatedPosition(animation: MoveAnimation): Position {
-  const { from, to, progress } = animation;
-  const x = from.col + (to.col - from.col) * progress;
-  const y = from.row + (to.row - from.row) * progress;
-  return { col: x, row: y };
+type Animation = {
+  base: BoardData;
+  target: BoardData;
+  transitions: Transition[];
+  startTime: number;
+};
+
+function getPieceKey(piece: PieceData | null): string {
+  return piece === null ? "" : getPieceId(piece);
 }
 
-function useMoveAnimation() {
-  const [animation, setAnimation] = useState<MoveAnimation | null>(null);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const animationRef = useRef<MoveAnimation | null>(null);
-  const onCompleteRef = useRef<(() => void) | undefined>(undefined);
+function toPosition(index: number): Position {
+  return { col: index % BOARD_COLS, row: Math.floor(index / BOARD_COLS) };
+}
 
-  const startAnimation = (
-    from: Position,
-    to: Position,
-    onComplete?: () => void,
-  ) => {
-    onCompleteRef.current = onComplete;
-    const initialAnimation = { from, to, progress: 0 };
-    animationRef.current = initialAnimation;
-    setAnimation(initialAnimation);
-    setIsAnimating(true);
-  };
+// Match the changed squares between two boards into piece movements by
+// shortest distance. Pieces only move to a square they do not already occupy.
+function diffTransitions(base: BoardData, target: BoardData): Transition[] {
+  const baseCells = base.getBoard();
+  const targetCells = target.getBoard();
+
+  const removed: number[] = [];
+  const added: number[] = [];
+  for (let i = 0; i < baseCells.length; i++) {
+    if (getPieceKey(baseCells[i]) === getPieceKey(targetCells[i])) continue;
+    if (baseCells[i] !== null) removed.push(i);
+    if (targetCells[i] !== null) added.push(i);
+  }
+
+  const usedAdded = new Set<number>();
+  const transitions: Transition[] = [];
+  for (const fromIndex of removed) {
+    const piece = baseCells[fromIndex];
+    if (piece === null) continue;
+
+    const from = toPosition(fromIndex);
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+    for (const toIndex of added) {
+      if (usedAdded.has(toIndex)) continue;
+      const candidate = targetCells[toIndex];
+      if (candidate === null) continue;
+      if (getPieceKey(candidate) !== getPieceKey(piece)) continue;
+
+      const to = toPosition(toIndex);
+      const distance =
+        Math.abs(to.col - from.col) + Math.abs(to.row - from.row);
+      if (distance < 1) continue;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = toIndex;
+      }
+    }
+    if (bestIndex === -1) continue;
+
+    usedAdded.add(bestIndex);
+    const to = toPosition(bestIndex);
+    const occupied = baseCells[bestIndex];
+    transitions.push({
+      piece,
+      from,
+      to,
+      captured:
+        occupied !== null && getPieceKey(occupied) !== getPieceKey(piece)
+          ? occupied
+          : null,
+    });
+  }
+  return transitions;
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+// Watches the board instance and derives an animation from every change, so
+// local moves, history jumps and external updates all animate the same way.
+function useBoardAnimation(boardData: BoardData) {
+  const [animation, setAnimation] = useState<Animation | null>(null);
+  const [progress, setProgress] = useState(0);
+  const prevBoardRef = useRef(boardData);
+
+  useLayoutEffect(() => {
+    const base = prevBoardRef.current;
+    prevBoardRef.current = boardData;
+    if (base === boardData) return;
+
+    const transitions = diffTransitions(base, boardData);
+    if (transitions.length === 0) {
+      setAnimation(null);
+      return;
+    }
+
+    setProgress(0);
+    setAnimation({
+      base,
+      target: boardData,
+      transitions,
+      startTime: performance.now(),
+    });
+  }, [boardData]);
 
   useEffect(() => {
-    if (!isAnimating) return;
+    if (animation === null) return;
 
-    const interval = setInterval(() => {
-      const current = animationRef.current;
-      if (!current) return;
+    let frameId = 0;
+    const tick = () => {
+      const elapsed = performance.now() - animation.startTime;
+      const next = Math.min(elapsed / ANIMATION_DURATION, 1);
+      setProgress(next);
+      if (next >= 1) setAnimation(null);
+      else frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [animation]);
 
-      const newProgress = Math.min(
-        current.progress + PER_FRAME_DURATION / TOTAL_ANIMATION_DURATION,
-        1.0,
-      );
-
-      if (newProgress >= 1) {
-        clearInterval(interval);
-        setIsAnimating(false);
-        setAnimation(null);
-        onCompleteRef.current?.();
-      } else {
-        const updated = { ...current, progress: newProgress };
-        animationRef.current = updated;
-        setAnimation(updated);
-      }
-    }, PER_FRAME_DURATION);
-
-    return () => clearInterval(interval);
-  }, [isAnimating]);
-
-  return [animation, startAnimation] as const;
+  const active =
+    animation !== null && animation.target === boardData ? animation : null;
+  return [active, progress] as const;
 }
 
 export function Board({
@@ -81,22 +149,29 @@ export function Board({
   boardData: BoardData;
   setBoardData?: React.Dispatch<React.SetStateAction<BoardData>>;
 }) {
-  const [prevBoardData, setPrevBoardData] = useState<BoardData | null>(null);
+  const [selection, setSelection] = useState<{
+    position: Position;
+    board: BoardData;
+  } | null>(null);
+  const [animation, progress] = useBoardAnimation(boardData);
 
-  const [selected, setSelected] = useState<Position | null>(null);
-  const [animation, startAnimation] = useMoveAnimation();
-
-  if (prevBoardData !== boardData) {
-    setSelected(null);
-    setPrevBoardData(boardData);
-  }
+  // A selection only stays valid for the board instance it was made on.
+  const selected =
+    selection !== null && selection.board === boardData
+      ? selection.position
+      : null;
 
   const readonly = useMemo(() => setBoardData === undefined, [setBoardData]);
 
+  const drawnBoard = animation ? animation.base : boardData;
+
   const updateSelected = (col: number, row: number) => {
     if (readonly || animation !== null) return;
-    if (selected === null) setSelected({ col, row });
-    else if (selected.col === col && selected.row === row) setSelected(null);
+    const select = () =>
+      setSelection({ position: { col, row }, board: boardData });
+
+    if (selected === null) select();
+    else if (selected.col === col && selected.row === row) setSelection(null);
     else {
       const newBoardData = boardData.copy();
       if (
@@ -105,11 +180,9 @@ export function Board({
           to: { col, row },
         })
       ) {
-        setSelected(null);
-        startAnimation(selected, { col, row }, () => {
-          setBoardData?.(newBoardData);
-        });
-      } else setSelected({ col, row });
+        setSelection(null);
+        setBoardData?.(newBoardData);
+      } else select();
     }
   };
 
@@ -124,17 +197,22 @@ export function Board({
 
   const renderPieces = () => {
     const children: React.ReactNode[] = [];
+
+    // Squares taken over by the ghost layer while an animation is running.
+    const hidden = new Set<string>();
+    if (animation)
+      for (const transition of animation.transitions) {
+        hidden.add(`${transition.from.col}-${transition.from.row}`);
+        if (transition.captured)
+          hidden.add(`${transition.to.col}-${transition.to.row}`);
+      }
+
     for (let row = 0; row < 10; row++) {
       for (let col = 0; col < 9; col++) {
-        const piece = boardData.pieceAt(col, row);
-        const transform = `translate(${getX(col) - CELL / 2 + 2}, ${getY(row) - CELL / 2 + 2})`;
+        if (hidden.has(`${col}-${row}`)) continue;
 
-        if (
-          animation &&
-          animation.from.col === col &&
-          animation.from.row === row
-        )
-          continue;
+        const piece = drawnBoard.pieceAt(col, row);
+        const transform = `translate(${getX(col) - CELL / 2 + 2}, ${getY(row) - CELL / 2 + 2})`;
 
         if (piece === null)
           children.push(
@@ -161,7 +239,8 @@ export function Board({
                 onClick={
                   !readonly &&
                   animation === null &&
-                  (piece.color === boardData.getTurn() || isValidMove(col, row))
+                  (piece.color === drawnBoard.getTurn() ||
+                    isValidMove(col, row))
                     ? (e) => {
                         e.stopPropagation();
                         updateSelected(col, row);
@@ -177,19 +256,32 @@ export function Board({
     }
 
     if (animation) {
-      const animatedPos = getAnimatedPosition(animation);
-      const originalPiece = boardData.pieceAt(
-        animation.from.col,
-        animation.from.row,
-      );
-      if (originalPiece) {
-        const transform = `translate(${getX(animatedPos.col) - CELL / 2 + 2}, ${getY(animatedPos.row) - CELL / 2 + 2})`;
+      const eased = easeOutCubic(progress);
+      for (const transition of animation.transitions) {
+        const { piece, from, to, captured } = transition;
+
+        if (captured) {
+          const capturedTransform = `translate(${getX(to.col) - CELL / 2 + 2}, ${getY(to.row) - CELL / 2 + 2})`;
+          children.push(
+            <g
+              key={`capture-${getPieceId(captured)}-${to.col}-${to.row}`}
+              transform={capturedTransform}
+              opacity={1 - eased}
+            >
+              <PieceSvg name={captured.name} color={captured.color} />
+            </g>,
+          );
+        }
+
+        const col = from.col + (to.col - from.col) * eased;
+        const row = from.row + (to.row - from.row) * eased;
+        const transform = `translate(${getX(col) - CELL / 2 + 2}, ${getY(row) - CELL / 2 + 2})`;
         children.push(
           <g
-            key={`anim-${getPieceId(originalPiece)}-${animation.to.col}-${animation.to.row}`}
+            key={`anim-${getPieceId(piece)}-${to.col}-${to.row}`}
             transform={transform}
           >
-            <PieceSvg name={originalPiece.name} color={originalPiece.color} />
+            <PieceSvg name={piece.name} color={piece.color} />
           </g>,
         );
       }
@@ -202,7 +294,7 @@ export function Board({
       style={{ display: "inline-block" }}
       onClick={(e) => {
         e.stopPropagation();
-        setSelected(null);
+        setSelection(null);
       }}
     >
       <BoardSvg>{renderPieces()}</BoardSvg>
