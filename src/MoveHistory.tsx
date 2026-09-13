@@ -39,7 +39,14 @@ export function MoveHistory({
       virtual
       style={style}
       itemRender={(item) => (
-        <Typography style={{ color: item.color, cursor: "pointer" }}>
+        <Typography
+          style={{
+            color: item.color,
+            cursor: "pointer",
+            fontWeight: 600,
+            fontFamily: "Arial, PingFang SC, SimHei, sans-serif",
+          }}
+        >
           {item.content}
         </Typography>
       )}
