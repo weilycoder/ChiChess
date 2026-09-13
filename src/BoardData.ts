@@ -217,7 +217,7 @@ export class BoardData {
 
   redoMove(): boolean {
     if (this.historyIndex >= this.history.length) return false;
-    const nextMove = this.history[this.historyIndex++];
+    const nextMove = this.history[++this.historyIndex];
     if (nextMove.move === null) return false;
 
     const { from, to } = nextMove.move;
