@@ -1,10 +1,54 @@
-import {
-  pieces_abbr,
-  pieces_name,
-  numberNotation,
-  type PieceAbbr,
-  type PieceData,
-} from "./utils";
+export const pieces_name = {
+  advisor: {
+    red: "士",
+    black: "仕",
+  },
+  cannon: {
+    red: "炮",
+    black: "砲",
+  },
+  elephant: {
+    red: "相",
+    black: "象",
+  },
+  horse: {
+    red: "马",
+    black: "馬",
+  },
+  king: {
+    red: "帅",
+    black: "将",
+  },
+  pawn: {
+    red: "兵",
+    black: "卒",
+  },
+  rook: {
+    red: "车",
+    black: "車",
+  },
+};
+
+export type PieceName = keyof typeof pieces_name;
+
+export type PieceData = {
+  name: PieceName;
+  color: "red" | "black";
+};
+
+const pieces_abbr: Record<string, PieceName> = {
+  A: "advisor",
+  C: "cannon",
+  E: "elephant",
+  B: "elephant",
+  H: "horse",
+  N: "horse",
+  K: "king",
+  P: "pawn",
+  R: "rook",
+};
+
+type PieceAbbr = keyof typeof pieces_abbr;
 
 export type Position = {
   col: number;
@@ -66,6 +110,11 @@ const horseDelta = [
     [1, 2],
   ],
 ];
+
+export const numberNotation = {
+  red: ["一", "二", "三", "四", "五", "六", "七", "八", "九"],
+  black: ["１", "２", "３", "４", "５", "６", "７", "８", "９"],
+};
 
 export class BoardData {
   private turn: "red" | "black";
