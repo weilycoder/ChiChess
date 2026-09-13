@@ -81,8 +81,15 @@ export function Board({
   boardData: BoardData;
   setBoardData?: React.Dispatch<React.SetStateAction<BoardData>>;
 }) {
+  const [prevBoardData, setPrevBoardData] = useState<BoardData | null>(null);
+
   const [selected, setSelected] = useState<Position | null>(null);
   const [animation, startAnimation] = useMoveAnimation();
+
+  if (prevBoardData !== boardData) {
+    setSelected(null);
+    setPrevBoardData(boardData);
+  }
 
   const readonly = useMemo(() => setBoardData === undefined, [setBoardData]);
 
