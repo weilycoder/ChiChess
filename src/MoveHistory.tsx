@@ -1,4 +1,5 @@
-import { Listy, Typography, Card } from "antd";
+import { Listy, Typography, Card, type ListyRef } from "antd";
+import { useRef, useEffect } from "react";
 
 import { type BoardData } from "./BoardData";
 import { numberNotation } from "./utils";
@@ -22,6 +23,8 @@ export function MoveHistory({
   height?: number;
   style?: React.CSSProperties;
 }) {
+  const listyRef = useRef<ListyRef>(null);
+
   const { index: currentIndex, items: moves } = boardData.getHistory();
   const items = moves.map((move, index) => {
     return {
@@ -33,9 +36,14 @@ export function MoveHistory({
     };
   });
 
+  useEffect(() => {
+    listyRef.current?.scrollTo({ key: currentIndex, align: "auto" });
+  }, [boardData, listyRef, currentIndex]);
+
   return (
     <Listy
       items={items}
+      ref={listyRef}
       rowKey="id"
       height={height}
       virtual
