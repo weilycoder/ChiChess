@@ -1,4 +1,4 @@
-import { Listy, Typography } from "antd";
+import { Listy, Typography, Card } from "antd";
 
 import { type BoardData } from "./BoardData";
 import { numberNotation } from "./utils";
@@ -11,16 +11,18 @@ function getNotationColor(chineseNotation: string): "red" | "black" {
 
 export function MoveHistory({
   boardData,
+  setBoardData,
   startText,
   height,
   style,
 }: {
   boardData: BoardData;
+  setBoardData?: React.Dispatch<React.SetStateAction<BoardData>>;
   startText?: string;
   height?: number;
   style?: React.CSSProperties;
 }) {
-  const { items: moves } = boardData.getHistory();
+  const { index: currentIndex, items: moves } = boardData.getHistory();
   const items = moves.map((move, index) => {
     return {
       id: index,
@@ -39,16 +41,35 @@ export function MoveHistory({
       virtual
       style={style}
       itemRender={(item) => (
-        <Typography
+        <Card
+          size="small"
+          variant="outlined"
+          hoverable
           style={{
-            color: item.color,
+            textAlign: "center",
             cursor: "pointer",
-            fontWeight: 600,
-            fontFamily: "Arial, PingFang SC, SimHei, sans-serif",
+            backgroundColor: currentIndex === item.id ? "#e6f7ff" : undefined,
           }}
+          onClick={
+            setBoardData
+              ? () => {
+                  const newBoardData = boardData.copy();
+                  newBoardData.jumpToHistory(item.id);
+                  setBoardData(newBoardData);
+                }
+              : undefined
+          }
         >
-          {item.content}
-        </Typography>
+          <Typography
+            style={{
+              color: item.color,
+              fontWeight: 600,
+              fontFamily: "Arial, PingFang SC, SimHei, sans-serif",
+            }}
+          >
+            {item.content}
+          </Typography>
+        </Card>
       )}
     ></Listy>
   );
