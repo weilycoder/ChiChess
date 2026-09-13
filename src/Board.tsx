@@ -13,12 +13,16 @@ import {
 const ANIMATION_DURATION = 150;
 const BOARD_COLS = 9;
 
-type Transition = {
-  piece: PieceData;
-  from: Position;
-  to: Position;
-  captured: PieceData | null;
-};
+type Transition =
+  | {
+      kind: "move";
+      piece: PieceData;
+      from: Position;
+      to: Position;
+      captured: PieceData | null;
+    }
+  | { kind: "appear"; piece: PieceData; at: Position }
+  | { kind: "disappear"; piece: PieceData; at: Position };
 
 type Animation = {
   base: BoardData;
@@ -37,6 +41,8 @@ function toPosition(index: number): Position {
 
 // Match the changed squares between two boards into piece movements by
 // shortest distance. Pieces only move to a square they do not already occupy.
+// Squares that cannot be explained by a movement become appear/disappear
+// transitions so they can fade in and out.
 function diffTransitions(base: BoardData, target: BoardData): Transition[] {
   const baseCells = base.getBoard();
   const targetCells = target.getBoard();
@@ -49,8 +55,10 @@ function diffTransitions(base: BoardData, target: BoardData): Transition[] {
     if (targetCells[i] !== null) added.push(i);
   }
 
+  const explainedRemoved = new Set<number>();
   const usedAdded = new Set<number>();
   const transitions: Transition[] = [];
+
   for (const fromIndex of removed) {
     const piece = baseCells[fromIndex];
     if (piece === null) continue;
@@ -76,18 +84,30 @@ function diffTransitions(base: BoardData, target: BoardData): Transition[] {
     if (bestIndex === -1) continue;
 
     usedAdded.add(bestIndex);
+    explainedRemoved.add(fromIndex);
+
     const to = toPosition(bestIndex);
     const occupied = baseCells[bestIndex];
-    transitions.push({
-      piece,
-      from,
-      to,
-      captured:
-        occupied !== null && getPieceKey(occupied) !== getPieceKey(piece)
-          ? occupied
-          : null,
-    });
+    const captured = occupied;
+    if (occupied !== null) explainedRemoved.add(bestIndex);
+
+    transitions.push({ kind: "move", piece, from, to, captured });
   }
+
+  for (const index of removed) {
+    if (explainedRemoved.has(index)) continue;
+    const piece = baseCells[index];
+    if (piece === null) continue;
+    transitions.push({ kind: "disappear", piece, at: toPosition(index) });
+  }
+
+  for (const index of added) {
+    if (usedAdded.has(index)) continue;
+    const piece = targetCells[index];
+    if (piece === null) continue;
+    transitions.push({ kind: "appear", piece, at: toPosition(index) });
+  }
+
   return transitions;
 }
 
@@ -202,9 +222,11 @@ export function Board({
     const hidden = new Set<string>();
     if (animation)
       for (const transition of animation.transitions) {
-        hidden.add(`${transition.from.col}-${transition.from.row}`);
-        if (transition.captured)
-          hidden.add(`${transition.to.col}-${transition.to.row}`);
+        if (transition.kind === "move") {
+          hidden.add(`${transition.from.col}-${transition.from.row}`);
+          if (transition.captured)
+            hidden.add(`${transition.to.col}-${transition.to.row}`);
+        } else hidden.add(`${transition.at.col}-${transition.at.row}`);
       }
 
     for (let row = 0; row < 10; row++) {
@@ -258,6 +280,21 @@ export function Board({
     if (animation) {
       const eased = easeOutCubic(progress);
       for (const transition of animation.transitions) {
+        if (transition.kind === "appear" || transition.kind === "disappear") {
+          const { kind, piece, at } = transition;
+          const transform = `translate(${getX(at.col) - CELL / 2 + 2}, ${getY(at.row) - CELL / 2 + 2})`;
+          children.push(
+            <g
+              key={`${kind}-${getPieceId(piece)}-${at.col}-${at.row}`}
+              transform={transform}
+              opacity={kind === "appear" ? eased : 1 - eased}
+            >
+              <PieceSvg name={piece.name} color={piece.color} />
+            </g>,
+          );
+          continue;
+        }
+
         const { piece, from, to, captured } = transition;
 
         if (captured) {
