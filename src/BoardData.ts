@@ -60,9 +60,15 @@ export type Move = {
   to: Position;
 };
 
-export type historyItem = {
-  move: Move | null;
-  originalPiece: PieceData | null;
+export type Situation = {
+  board: (PieceData | null)[];
+  turn: "red" | "black";
+};
+
+export type MoveHistoryNode = {
+  situation: Situation;
+  parentIndex: number | null;
+  childrenIndices: number[];
   chineseNotation?: string;
 };
 
@@ -117,20 +123,19 @@ export const numberNotation = {
 };
 
 export class BoardData {
-  private turn: "red" | "black";
-  private board: (PieceData | null)[];
-
   private historyIndex: number;
-  private history: historyItem[];
+  private history: MoveHistoryNode[];
 
-  constructor(fen: string | null = initialFen) {
-    if (fen === null) {
-      this.turn = "red";
-      this.board = Array(90).fill(null);
-    } else {
-      const [piecesPart, turnPart] = fen.split(" ");
+  constructor(situation: string | Situation | null = initialFen) {
+    let curr_turn: "red" | "black";
+    let curr_board: (PieceData | null)[];
+    if (situation === null) {
+      curr_turn = "red";
+      curr_board = Array(90).fill(null);
+    } else if (typeof situation === "string") {
+      const [piecesPart, turnPart] = situation.split(" ");
 
-      this.turn = ["b", "black"].includes(turnPart.toLowerCase())
+      curr_turn = ["b", "black"].includes(turnPart.toLowerCase())
         ? "black"
         : "red";
 
@@ -149,29 +154,44 @@ export class BoardData {
       if (board.length !== 90)
         throw new Error("Invalid FEN string: incorrect number of squares");
 
-      this.board = board;
+      curr_board = board;
+    } else {
+      curr_turn = situation.turn;
+      curr_board = situation.board;
     }
+
     this.historyIndex = 0;
     this.history = [
-      { move: null, originalPiece: null, chineseNotation: undefined },
+      {
+        situation: {
+          board: curr_board,
+          turn: curr_turn,
+        },
+        parentIndex: null,
+        childrenIndices: [],
+      },
     ];
   }
 
   getTurn() {
-    return this.turn;
+    return this.history[this.historyIndex].situation.turn;
   }
 
   getHistory() {
-    return { index: this.historyIndex, items: this.history } as const;
+    return { index: this.historyIndex, nodes: this.history } as const;
+  }
+
+  private board(): (PieceData | null)[] {
+    return this.history[this.historyIndex].situation.board;
   }
 
   getBoard(): (PieceData | null)[] {
-    return structuredClone(this.board);
+    return structuredClone(this.board());
   }
 
   pieceAt(col: number, row: number): PieceData | null {
     if (col < 0 || col >= 9 || row < 0 || row >= 10) return null;
-    return this.board[row * 9 + col];
+    return this.board()[row * 9 + col];
   }
 
   sameColor(col1: number, row1: number, col2: number, row2: number): boolean {
@@ -183,9 +203,7 @@ export class BoardData {
 
   copy(): BoardData {
     const newBoardData = new BoardData(null);
-    newBoardData.turn = this.turn;
-    newBoardData.board = [...this.board];
-    newBoardData.history = [...this.history];
+    newBoardData.history = structuredClone(this.history);
     newBoardData.historyIndex = this.historyIndex;
     return newBoardData;
   }
@@ -194,48 +212,45 @@ export class BoardData {
     const { from, to } = move;
     if (!this.isValidMove(move)) return false;
 
-    this.history = this.history.slice(0, ++this.historyIndex);
-    this.history.push({
-      move,
-      originalPiece: this.pieceAt(to.col, to.row),
-      chineseNotation: this.chineseMoveNotation(move),
-    });
+    const chineseNotation = this.chineseMoveNotation(move);
+    const newBoard = this.getBoard();
 
-    this.board[to.row * 9 + to.col] = this.board[from.row * 9 + from.col];
-    this.board[from.row * 9 + from.col] = null;
-    this.turn = this.turn === "red" ? "black" : "red";
+    newBoard[to.row * 9 + to.col] = newBoard[from.row * 9 + from.col];
+    newBoard[from.row * 9 + from.col] = null;
+    const newTurn = this.getTurn() === "red" ? "black" : "red";
+
+    const parentIndex = this.historyIndex;
+    const newIndex = this.history.length;
+    this.history.push({
+      situation: {
+        board: newBoard,
+        turn: newTurn,
+      },
+      parentIndex,
+      childrenIndices: [],
+      chineseNotation,
+    });
+    this.history[parentIndex].childrenIndices.push(newIndex);
+    this.historyIndex = newIndex;
     return true;
   }
 
   undoMove(): boolean {
     if (this.historyIndex === 0) return false;
-    const lastMove = this.history[this.historyIndex--];
-    if (lastMove.move === null) return false;
-
-    const { from, to } = lastMove.move;
-    this.board[from.row * 9 + from.col] = this.board[to.row * 9 + to.col];
-    this.board[to.row * 9 + to.col] = lastMove.originalPiece;
-    this.turn = this.turn === "red" ? "black" : "red";
-    return true;
-  }
-
-  redoMove(): boolean {
-    if (this.historyIndex >= this.history.length) return false;
-    const nextMove = this.history[++this.historyIndex];
-    if (nextMove.move === null) return false;
-
-    const { from, to } = nextMove.move;
-    this.board[to.row * 9 + to.col] = this.board[from.row * 9 + from.col];
-    this.board[from.row * 9 + from.col] = null;
-    this.turn = this.turn === "red" ? "black" : "red";
+    const parentIndex = this.history[this.historyIndex].parentIndex;
+    if (parentIndex === null) return false;
+    this.restoreHistory(parentIndex);
     return true;
   }
 
   jumpToHistory(index: number): boolean {
     if (index < 0 || index >= this.history.length) return false;
-    while (this.historyIndex < index) this.redoMove();
-    while (this.historyIndex > index) this.undoMove();
+    this.restoreHistory(index);
     return true;
+  }
+
+  private restoreHistory(index: number): void {
+    this.historyIndex = index;
   }
 
   // Get all possible moves for a piece at (col, row) without considering check
@@ -471,16 +486,20 @@ export class BoardData {
     const possibleMoves = this.getPossibleMoves(col, row);
     let validMoves: Position[] = [];
     for (let move of possibleMoves) {
-      const newBoard = this.copy();
-      newBoard.board[move.row * 9 + move.col] = newBoard.board[row * 9 + col];
-      newBoard.board[row * 9 + col] = null;
-      if (!newBoard.isInCheck(this.turn)) validMoves.push(move);
+      const newBoard = this.getBoard();
+      newBoard[move.row * 9 + move.col] = newBoard[row * 9 + col];
+      newBoard[row * 9 + col] = null;
+      const newBoardData = new BoardData({
+        board: newBoard,
+        turn: this.getTurn(),
+      });
+      if (!newBoardData.isInCheck(this.getTurn())) validMoves.push(move);
     }
     return validMoves;
   }
 
   getAllValidMoves(): Move[] {
-    const color = this.turn;
+    const color = this.getTurn();
     let allValidMoves: Move[] = [];
     for (let row = 0; row < 10; row++)
       for (let col = 0; col < 9; col++) {
@@ -496,7 +515,8 @@ export class BoardData {
 
   isValidMove(move: Move): boolean {
     const { from, to } = move;
-    if (this.pieceAt(from.col, from.row)?.color !== this.turn) return false;
+    if (this.pieceAt(from.col, from.row)?.color !== this.getTurn())
+      return false;
     const validMoves = this.getValidMoves(from.col, from.row);
     return validMoves.some(
       (move) => move.col === to.col && move.row === to.row,
@@ -522,6 +542,6 @@ export class BoardData {
       if (emptyCount > 0) fen += emptyCount.toString();
       if (row < 9) fen += "/";
     }
-    return fen + " " + (this.turn === "red" ? "w" : "b");
+    return fen + " " + (this.getTurn() === "red" ? "w" : "b");
   }
 }

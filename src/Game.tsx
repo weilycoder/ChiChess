@@ -25,7 +25,7 @@ export function Game({
         setBoardData={setBoardData}
         height={BOARD_CELL_SIZE * 9}
         style={{
-          width: 160,
+          width: 320,
           margin: `${BOARD_MARGIN}px 0`,
           border: "1px solid #ccc",
         }}
