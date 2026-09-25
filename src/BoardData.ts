@@ -72,6 +72,16 @@ export type MoveHistoryNode = {
   chineseNotation?: string;
 };
 
+function sameSituation(left: Situation, right: Situation): boolean {
+  return (
+    left.turn === right.turn &&
+    left.board.every((piece, index) => {
+      const other = right.board[index];
+      return piece?.name === other?.name && piece?.color === other?.color;
+    })
+  );
+}
+
 export const initialFen =
   "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w";
 
@@ -246,14 +256,21 @@ export class BoardData {
     newBoard[to.row * 9 + to.col] = newBoard[from.row * 9 + from.col];
     newBoard[from.row * 9 + from.col] = null;
     const newTurn = this.getTurn() === "red" ? "black" : "red";
+    const situation = { board: newBoard, turn: newTurn } as const;
 
     const parentIndex = this.historyIndex;
+    const existingIndex = this.history[parentIndex].childrenIndices.find(
+      (childIndex) =>
+        sameSituation(this.history[childIndex].situation, situation),
+    );
+    if (existingIndex !== undefined) {
+      this.historyIndex = existingIndex;
+      return true;
+    }
+
     const newIndex = this.history.length;
     this.history.push({
-      situation: {
-        board: newBoard,
-        turn: newTurn,
-      },
+      situation,
       parentIndex,
       childrenIndices: [],
       chineseNotation,
