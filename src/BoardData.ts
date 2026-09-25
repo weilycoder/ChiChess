@@ -277,6 +277,26 @@ export class BoardData {
     return true;
   }
 
+  shiftToMainVariation(index: number): boolean {
+    if (index < 0 || index >= this.history.length) return false;
+
+    let currentIndex = index;
+    while (this.history[currentIndex].parentIndex !== null) {
+      const parentIndex = this.history[currentIndex].parentIndex;
+      if (parentIndex === null) break;
+
+      const children = this.history[parentIndex].childrenIndices;
+      const childPosition = children.indexOf(currentIndex);
+      if (childPosition === -1) return false;
+
+      children.splice(childPosition, 1);
+      children.unshift(currentIndex);
+      currentIndex = parentIndex;
+    }
+
+    return true;
+  }
+
   private restoreHistory(index: number): void {
     this.historyIndex = index;
   }
