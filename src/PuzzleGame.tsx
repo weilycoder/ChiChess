@@ -45,7 +45,15 @@ function isMainVariation(boardData: BoardData, index: number): boolean {
   );
 }
 
-export function PuzzleGame({ puzzle }: { puzzle: Puzzle }) {
+export function PuzzleGame({
+  puzzle,
+  onBack,
+  onCompleted,
+}: {
+  puzzle: Puzzle;
+  onBack: () => void;
+  onCompleted: () => void;
+}) {
   const [messageApi, contextHolder] = message.useMessage();
   const [boardData, setBoardData] = useState(
     () => new BoardData(puzzle.initialFen),
@@ -106,6 +114,10 @@ export function PuzzleGame({ puzzle }: { puzzle: Puzzle }) {
     else messageApi.warning(feedback);
   }, [completed, feedback, messageApi]);
 
+  useEffect(() => {
+    if (completed) onCompleted();
+  }, [completed, onCompleted]);
+
   const reset = () => {
     setBoardData(new BoardData(puzzle.initialFen));
   };
@@ -118,7 +130,10 @@ export function PuzzleGame({ puzzle }: { puzzle: Puzzle }) {
           <Typography.Title level={3} style={{ margin: 0 }}>
             {puzzle.id}
           </Typography.Title>
-          <Button onClick={reset}>重置</Button>
+          <Flex gap={8}>
+            <Button onClick={onBack}>题库</Button>
+            <Button onClick={reset}>重置</Button>
+          </Flex>
         </Flex>
         <Game
           boardData={boardData}
