@@ -8,6 +8,10 @@
 - `src/BoardData.ts` owns positions, FEN parsing, legal move validation, check detection, Chinese notation, and branched move history.
 - `src/Board.tsx` owns selection, move interaction, read-only mode, and board transition animation.
 - `src/BoardSvg.tsx` and `src/PiecesSvg.tsx` are the SVG rendering layers.
+- `src/Puzzle.ts` defines and validates the five-field `Puzzle` schema with Zod and loads the bundled puzzle data.
+- `src/PuzzleGame.tsx` owns puzzle progress, feedback messages, automatic black responses, and reset behavior.
+- `src/PuzzleList.tsx` renders the puzzle list; `App.tsx` selects list/detail views through `#puzzle/<id>` hashes.
+- `src/puzzles.json` is bundled at build time; it is not fetched from `public` at runtime.
 
 ## Chess State Rules
 
@@ -15,7 +19,17 @@
 - Do not mutate the board array or history nodes directly. Doing so breaks React updates, selection invalidation, animation, turn changes, notation, and variation history.
 - The board is 9 columns by 10 rows. Array indices are `row * 9 + col`; red moves toward decreasing row numbers.
 - Preserve the parent/child links in `MoveHistoryNode` when changing history behavior. The first child is the main variation; later children are displayed as variations.
+- `BoardData.shiftToMainVariation(index)` promotes a node and its ancestor path by reordering `childrenIndices`; call it on a copied `BoardData` instance.
+- `BoardData.movePiece()` reuses an existing child with the same resulting situation instead of creating a duplicate variation node.
 - Keep new board interactions disabled while `Board` has an active animation unless the behavior explicitly accounts for that state.
+
+## Puzzle Conventions
+
+- The initial `Puzzle` schema contains only `schemaVersion`, `id`, `category`, `initialFen`, and `steps`; do not add `playerColor` or multi-solution fields without an explicit requirement.
+- `initialFen` carries the side-to-move information. `steps` is one whitespace-separated string of four-character moves such as `c3c4 b7c7`.
+- External puzzle coordinates use columns `a-i` from Red's left to right and rows `0-9` from Red's bottom to top. `BoardData.parseMoves()` converts them to internal coordinates; for example, `c3c4` becomes `{ from: { col: 2, row: 6 }, to: { col: 2, row: 5 } }`.
+- Red is the player and Black responses are automatic according to the initial turn and step order. Legal wrong moves remain in the history as variations; they do not advance puzzle progress.
+- `MoveHistory` must remain freely navigable in puzzle mode. Puzzle state should synchronize after a jump rather than disabling history controls.
 
 ## Development Commands
 
@@ -38,3 +52,4 @@ There is currently no test script or test suite. For changes to chess rules or h
 - `tsconfig.app.json` enables `noUnusedLocals`, `noUnusedParameters`, `erasableSyntaxOnly`, and `noFallthroughCasesInSwitch`.
 - Run `pnpm run lint`, `pnpm run format:check`, and `pnpm run build` after changes that affect source code.
 - Keep SVG geometry aligned with `BOARD_CELL_SIZE`, `BOARD_MARGIN`, and the coordinate helpers in `src/utils.ts`.
+- Use Ant Design `message` for transient puzzle and application feedback; render its `contextHolder` in the component tree.
