@@ -536,7 +536,7 @@ export class BoardData {
             emptyCount = 0;
           }
           const abbr = piece.name[0].toUpperCase();
-          fen += piece.color === "red" ? abbr.toUpperCase() : abbr;
+          fen += piece.color === "red" ? abbr : abbr.toLowerCase();
         }
       }
       if (emptyCount > 0) fen += emptyCount.toString();
