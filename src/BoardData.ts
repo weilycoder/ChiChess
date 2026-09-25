@@ -122,6 +122,34 @@ export const numberNotation = {
   black: ["１", "２", "３", "４", "５", "６", "７", "８", "９"],
 };
 
+const puzzleStepPattern = /^([a-i])([0-9])([a-i])([0-9])$/;
+
+function parsePuzzlePosition(column: string, row: string): Position {
+  return {
+    col: column.charCodeAt(0) - "a".charCodeAt(0),
+    row: 9 - Number(row),
+  };
+}
+
+export function parseMoves(steps: string): Move[] {
+  if (steps.trim() === "") throw new Error("Puzzle steps must not be empty");
+
+  return steps
+    .trim()
+    .split(/\s+/)
+    .map((step, index) => {
+      const match = puzzleStepPattern.exec(step);
+      if (match === null)
+        throw new Error(`Invalid puzzle step at index ${index}: '${step}'`);
+
+      const [, fromColumn, fromRow, toColumn, toRow] = match;
+      return {
+        from: parsePuzzlePosition(fromColumn, fromRow),
+        to: parsePuzzlePosition(toColumn, toRow),
+      };
+    });
+}
+
 export class BoardData {
   private historyIndex: number;
   private history: MoveHistoryNode[];
