@@ -338,9 +338,3 @@ export function Board({
     </div>
   );
 }
-
-export function ReadonlyBoard({ fen }: { fen: string }) {
-  const boardData = useMemo(() => new BoardData(fen), [fen]);
-
-  return <Board boardData={boardData} />;
-}
