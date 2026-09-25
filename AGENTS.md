@@ -8,10 +8,10 @@
 - `src/BoardData.ts` owns positions, FEN parsing, legal move validation, check detection, Chinese notation, and branched move history.
 - `src/Board.tsx` owns selection, move interaction, read-only mode, and board transition animation.
 - `src/BoardSvg.tsx` and `src/PiecesSvg.tsx` are the SVG rendering layers.
-- `src/Puzzle.ts` defines and validates the five-field `Puzzle` schema with Zod and loads the bundled puzzle data.
+- `src/Puzzle.ts` defines and validates the five-field `Puzzle` schema with Zod and loads `/puzzles.json` from the Vite `public` directory at runtime.
 - `src/PuzzleGame.tsx` owns puzzle progress, feedback messages, automatic black responses, and reset behavior.
 - `src/PuzzleList.tsx` renders the puzzle list; `App.tsx` selects list/detail views through `#puzzle/<id>` hashes.
-- `src/puzzles.json` is bundled at build time; it is not fetched from `public` at runtime.
+- `public/puzzles.json` is served as a static asset and fetched at runtime; do not add a TypeScript JSON import for the puzzle data.
 
 ## Chess State Rules
 
@@ -53,3 +53,10 @@ There is currently no test script or test suite. For changes to chess rules or h
 - Run `pnpm run lint`, `pnpm run format:check`, and `pnpm run build` after changes that affect source code.
 - Keep SVG geometry aligned with `BOARD_CELL_SIZE`, `BOARD_MARGIN`, and the coordinate helpers in `src/utils.ts`.
 - Use Ant Design `message` for transient puzzle and application feedback; render its `contextHolder` in the component tree.
+
+## Agent Workflow
+
+- When the user asks to plan, discuss, or review first, do not edit files until the user explicitly asks to execute the change.
+- Preserve the approved data contracts and scope. In particular, do not add puzzle fields or features that the user has explicitly deferred, and keep unrelated edits out of the change.
+- After modifying any project file, update `README.md` in the same task so the project documentation remains synchronized with the implementation.
+- After modifying any project file, update `AGENTS.md` in the same task. Record any changed project structure, behavior, data contracts, conventions, commands, or file locations; if there is no new project fact, still review the file and confirm it remains synchronized before finishing.

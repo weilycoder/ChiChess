@@ -6,7 +6,7 @@ ChiChess 是一个基于 React、TypeScript 和 Vite 的静态中国象棋谜题
 
 - 使用 SVG 棋盘进行中国象棋走子和合法性校验。
 - 支持 FEN 局面、中文棋谱和分支走法历史。
-- 题目数据通过 `src/puzzles.json` 在构建时打包，不依赖后端接口。
+- 题目数据位于 `public/puzzles.json` 在运行时请求。
 - 使用 Zod 校验五字段 Puzzle 数据：`schemaVersion`、`id`、`category`、`initialFen`、`steps`。
 - 支持错误走法进入历史分支、正确主线提升和黑方自动应手。
 - 题库使用 Hash 导航：`#puzzle/<id>`。

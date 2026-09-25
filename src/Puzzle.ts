@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { BoardData, parseMoves } from "./BoardData";
-import puzzleData from "./puzzles.json";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -55,5 +54,9 @@ export function parsePuzzles(value: unknown): Puzzle[] {
 }
 
 export async function loadPuzzles(): Promise<Puzzle[]> {
-  return parsePuzzles(puzzleData);
+  const response = await fetch("/puzzles.json");
+  if (!response.ok) {
+    throw new Error(`Failed to load puzzles: ${response.status}`);
+  }
+  return parsePuzzles(await response.json());
 }
